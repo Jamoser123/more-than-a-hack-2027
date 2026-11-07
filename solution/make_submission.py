@@ -44,6 +44,11 @@ def final_model(refresh=False, path=MODEL_PATH):
     return model
 
 
+def probs_path(submission_path):
+    """Where the per-frame classifier probabilities of a submission are kept."""
+    return os.path.splitext(submission_path)[0] + "_probs.npy"
+
+
 def write_submission(path, codes):
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "w") as handle:
@@ -68,6 +73,7 @@ def main(argv=None):
     probs = predict_probs(model, match)
     codes = decode(probs, match.period, params).astype(np.int64)
     path = write_submission(args.out, codes)
+    np.save(probs_path(path), probs.astype(np.float16))  # for solution.overlay, not submitted
     print("wrote {}".format(path))
     validator = os.path.join(ROOT, "evaluation", "validate_submission.py")
     return subprocess.call([sys.executable, validator, path])

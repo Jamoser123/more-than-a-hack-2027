@@ -30,6 +30,10 @@ pytest tests
 5. **Decoder** (`solution/decode.py`). An exact Viterbi over an explicit-duration HMM. Each label is a chain of `min_len` sub-states, so no run can be shorter than its minimum. Each transition type has a fixed log-cost (H↔A, alive→D, D→alive), and emissions are the classifier's log-probabilities. It is compiled with numba and decoded per half. Frames outside the graded halves are written as `X` (never scored).
 6. **Parameter choice** (`solution/validate.py`). Decoder settings are picked by grid search on out-of-fold IDSSE predictions. The result is stored in `solution/decoder_params.json` (`min_alive` 50 frames, `min_dead` 12, H↔A cost 5, alive↔dead cost 40, no D bias).
 
+## Inspecting the output
+
+`python -m solution.overlay` turns a submission into an ASS subtitle track. It shows a coloured banner with the label, segment number and time span, and a per-frame line with the frame index and the classifier's probabilities. Play it over the tactical video in mpv or VLC (`--sub-file=submissions/zueri_giele.ass`). Alternatively, `--burn clip.mp4 --start <s> --duration <s>` renders a clip with ffmpeg. This is a debugging aid for finding failure modes. In line with `RULES.md`, nothing seen this way becomes a label, a validation set or a frame-specific rule.
+
 ## Validation (open data only)
 
 Leave-one-match-out over the seven IDSSE matches, scored with the official `evaluation/possession_metrics.py`. For each held-out match:
