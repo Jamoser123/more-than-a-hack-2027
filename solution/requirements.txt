@@ -1,0 +1,9 @@
+# Our pipeline (solution/). Python 3.11, installed with:
+#   uv venv --python 3.11 && uv pip install -r solution/requirements.txt
+numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.5.2
+numba==0.60.0
+kloppy==3.18.0
+pytest==8.3.3
+ruff==0.7.4
