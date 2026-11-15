@@ -109,10 +109,15 @@ def decode_half(log_probs, params):
     return _viterbi(scores, min_len, cost).astype(np.int8)
 
 
-def decode(probs, period, params):
-    """Full-length label codes: decoded inside each period, X outside."""
+def decode(probs, period, params, prior=None):
+    """Full-length label codes: decoded inside each period, X outside.
+
+    prior: optional [T, 3] log-score offsets added to the log-probabilities (solution.tags).
+    """
     out = np.full(len(period), X, dtype=np.int8)
     log_probs = np.log(np.clip(probs, 1e-9, 1.0))
+    if prior is not None:
+        log_probs = log_probs + prior
     for _, start, stop in period_slices(period):
         out[start:stop] = decode_half(log_probs[start:stop], params)
     return out
