@@ -1,6 +1,6 @@
 """The one command that produces our submission from the data bundle, identically every time.
 
-    python -m solution.make_submission                       # -> submissions/zueri_giele.csv
+    python -m solution.make_submission                       # -> "submissions/züri giele.csv"
 
 Steps: fetch and convert the seven open IDSSE matches (cached under cache/), train the per-frame
 classifier on degraded copies of all of them (cached), read the competition ATD, predict per-frame
@@ -31,7 +31,7 @@ from solution.decode import DecoderParams, decode
 from solution.features import build_features
 from solution.model import build_training_set, fit, predict_probs
 
-TEAM = "zueri_giele"
+TEAM = "züri giele"  # the registered team name; SUBMISSION.md wants the files named after it
 PARAMS = {
     "mamba": os.path.join(HERE, "decoder_params_mamba.json"),
     "gbm": os.path.join(HERE, "decoder_params.json"),

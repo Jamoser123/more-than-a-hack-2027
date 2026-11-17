@@ -1,4 +1,4 @@
-# zueri_giele: technical document
+# züri giele: technical document
 
 More than a Hack 2027, Phase 1: per-frame ball possession (H / A / D) for FC Barcelona vs Athletic Club.
 
@@ -84,21 +84,21 @@ We do not hand-code possession rules; the line is the one in the training labels
 
 ## 8. Reproduction
 
-Python 3.11 and `uv`. The match data goes into `./data` (or `MTAH_DATA_DIR`), as in the challenge README.
+Python 3.11 (we used 3.11.7) and `uv`. The match data goes into `./data` (or `MTAH_DATA_DIR`), as in the challenge README.
 
 ```bash
 uv venv --python 3.11
-uv pip install -r solution/requirements.txt
+uv pip install -r solution/requirements-lock.txt    # exact versions of every package we used
 uv pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu   # CPU build of the pinned torch
-python -m solution.make_submission        # -> submissions/zueri_giele.csv, then the official validator
+python -m solution.make_submission        # -> "submissions/züri giele.csv", then the official validator
 ```
 
-The first run downloads and converts the seven IDSSE matches (about 2.6 GB, cached in `cache/`), trains the classifier on CPU (about 15 minutes on a 12-thread laptop, cached), and writes the CSV. All random draws are seeded, PyTorch runs in deterministic mode with a fixed thread count (10). Retraining from scratch in a fresh environment gave bit-identical model weights and a byte-identical CSV (SHA-256 `48ad98c8b4f3881258da1c4d97b12c9e79952ac3b70c37208a6dde75ceb9504f`). On a different CPU family, floating-point rounding in the PyTorch CPU kernels can differ; the GBM alternative (`--classifier gbm`) is far less sensitive to that.
+The first run downloads and converts the seven IDSSE matches (about 2.6 GB, cached in `cache/`), trains the classifier on CPU (about 15 minutes on a 12-thread laptop, cached), and writes the CSV. All random draws are seeded, PyTorch runs in deterministic mode with a fixed thread count (10). Retraining the classifier from scratch in a fresh environment (reusing the converted IDSSE data and features in `cache/`) gave bit-identical model weights and a byte-identical CSV (SHA-256 `48ad98c8b4f3881258da1c4d97b12c9e79952ac3b70c37208a6dde75ceb9504f`).
 
 Optional:
 
 ```bash
-python -m solution.make_submission --classifier gbm --out submissions/zueri_giele_gbm.csv
+python -m solution.make_submission --classifier gbm --out "submissions/züri giele gbm.csv"
 python -m solution.validate               # GBM, leave-one-match-out on IDSSE
 python -m solution.compare_models         # GBM vs Mamba-3, leave-one-match-out on IDSSE (hours on CPU)
 pytest tests
