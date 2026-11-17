@@ -2,15 +2,18 @@
 
     python -m solution.make_submission                       # -> submissions/zueri_giele.csv
 
-Steps: fetch and convert the seven open IDSSE matches (cached), train the classifier on degraded
-copies of all of them (cached under cache/), read the competition ATD, predict per-frame H/A/D
-probabilities, optionally add the Smart Tagging evidence (solution.tags: --tags for set pieces
-and goals, plus --tag-phases for the possession phases; off by default), decode
-per half with the duration-aware Viterbi using the parameters chosen by solution.validate
-(solution/decoder_params.json), write X outside the graded halves, and run the official
-validator on the written file.
+Steps: fetch and convert the seven open IDSSE matches (cached under cache/), train the per-frame
+classifier on degraded copies of all of them (cached), read the competition ATD, predict per-frame
+H/A/D probabilities, decode them per half with the duration-aware Viterbi, write X outside the
+graded halves, and run the official validator on the written file.
 
-Everything is seeded; rerunning it on the same data gives the same file byte for byte.
+The classifier is the Mamba-3 sequence model (solution/mamba3.py); --classifier gbm selects the
+gradient-boosted trees instead. Each has its own decoder settings, chosen leave-one-match-out on
+open data: solution/decoder_params_mamba.json by solution.compare_models, and
+solution/decoder_params.json by solution.validate.
+
+Everything is seeded and deterministic; rerunning it on the same data gives the same file byte for
+byte.
 """
 
 import argparse
@@ -22,22 +25,24 @@ import sys
 
 import numpy as np
 
-from solution import atd, idsse, tags
+from solution import atd, idsse
 from solution.common import CACHE_DIR, HERE, LETTERS, ROOT
 from solution.decode import DecoderParams, decode
 from solution.features import build_features
 from solution.model import build_training_set, fit, predict_probs
 
-PARAMS_PATH = os.path.join(HERE, "decoder_params.json")
-MODEL_PATH = os.path.join(CACHE_DIR, "final_model.pkl")
-# Mamba-3 classifier (--classifier mamba): its own decoder settings, chosen leave-one-match-out on
-# its IDSSE predictions by solution.compare_models (it needs far less smoothing than the GBM).
-MAMBA_PARAMS_PATH = os.path.join(HERE, "decoder_params_mamba.json")
-MAMBA_PATH = os.path.join(CACHE_DIR, "final_mamba.pkl")
 TEAM = "zueri_giele"
+PARAMS = {
+    "mamba": os.path.join(HERE, "decoder_params_mamba.json"),
+    "gbm": os.path.join(HERE, "decoder_params.json"),
+}
+MODELS = {
+    "mamba": os.path.join(CACHE_DIR, "final_mamba.pkl"),
+    "gbm": os.path.join(CACHE_DIR, "final_model.pkl"),
+}
 
 
-def final_mamba(refresh=False, path=MAMBA_PATH):
+def final_mamba(refresh=False, path=MODELS["mamba"]):
     """(Mamba-3 model, standardizer) trained on all seven open matches, cached after first run."""
     from solution.compare_models import mirrored_labels, training_views
     from solution.sequence_model import Standardizer, TrainConfig
@@ -70,8 +75,8 @@ def mamba_probs(model, std, match):
     return predict_from_features(model, direct, swapped, match.period)
 
 
-def final_model(refresh=False, path=MODEL_PATH):
-    """The classifier trained on all seven open matches, cached after the first run."""
+def final_model(refresh=False, path=MODELS["gbm"]):
+    """The GBM trained on all seven open matches, cached after the first run."""
     if not refresh and os.path.isfile(path):
         with open(path, "rb") as handle:
             return pickle.load(handle)
@@ -82,11 +87,6 @@ def final_model(refresh=False, path=MODEL_PATH):
     with open(path, "wb") as handle:
         pickle.dump(model, handle)
     return model
-
-
-def probs_path(submission_path):
-    """Where the per-frame classifier probabilities of a submission are kept."""
-    return os.path.splitext(submission_path)[0] + "_probs.npy"
 
 
 def write_submission(path, codes):
@@ -101,38 +101,23 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", default=os.path.join(ROOT, "submissions", TEAM + ".csv"))
     parser.add_argument("--data-dir", default=None, help="defaults to games.DATA_DIR")
-    parser.add_argument(
-        "--classifier", choices=("gbm", "mamba"), default="gbm", help="per-frame classifier"
-    )
+    parser.add_argument("--classifier", choices=("mamba", "gbm"), default="mamba")
     parser.add_argument("--params", default=None, help="decoder settings; per-classifier default")
     parser.add_argument("--model", default=None, help="model cache; per-classifier default")
-    parser.add_argument("--refresh-model", action="store_true")
-    parser.add_argument(
-        "--tags", action="store_true", help="add Smart Tagging set pieces and goals (experimental)"
-    )
-    parser.add_argument(
-        "--tag-phases", action="store_true", help="with --tags, also the possession phases"
-    )
+    parser.add_argument("--refresh-model", action="store_true", help="retrain, ignore the cache")
     args = parser.parse_args(argv)
 
-    mamba = args.classifier == "mamba"
-    with open(args.params or (MAMBA_PARAMS_PATH if mamba else PARAMS_PATH)) as handle:
+    with open(args.params or PARAMS[args.classifier]) as handle:
         params = DecoderParams(**json.load(handle))
     match = atd.load(data_dir=args.data_dir)
-    if mamba:
-        model, std = final_mamba(args.refresh_model, args.model or MAMBA_PATH)
+    model_path = args.model or MODELS[args.classifier]
+    if args.classifier == "mamba":
+        model, std = final_mamba(args.refresh_model, model_path)
         probs = mamba_probs(model, std, match)
     else:
-        model = final_model(args.refresh_model, args.model or MODEL_PATH)
-        probs = predict_probs(model, match)
-    prior = (
-        tags.match_prior(probs, data_dir=args.data_dir, phases=args.tag_phases)
-        if args.tags
-        else None
-    )
-    codes = decode(probs, match.period, params, prior).astype(np.int64)
+        probs = predict_probs(final_model(args.refresh_model, model_path), match)
+    codes = decode(probs, match.period, params).astype(np.int64)
     path = write_submission(args.out, codes)
-    np.save(probs_path(path), probs.astype(np.float16))  # for solution.overlay, not submitted
     print("wrote {}".format(path))
     validator = os.path.join(ROOT, "evaluation", "validate_submission.py")
     return subprocess.call([sys.executable, validator, path])

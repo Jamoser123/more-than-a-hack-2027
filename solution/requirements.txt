@@ -7,6 +7,6 @@ numba==0.60.0
 kloppy==3.18.0
 pytest==8.3.3
 ruff==0.7.4
-# Mamba-3 classifier (solution/mamba3.py). CPU build:
+# Mamba-3 classifier (solution/mamba3.py, the default). Install the CPU build:
 #   uv pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
 torch==2.5.1

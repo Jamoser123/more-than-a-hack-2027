@@ -11,7 +11,8 @@ Instead we decode the most likely label path under an explicit-duration model:
 
 That is a hidden semi-Markov model with a shifted-geometric duration per label. Decoding is exact,
 runs per half, and is compiled with numba because Viterbi is inherently sequential over frames.
-All of its parameters are chosen on open-data matches (train.py), never on the competition match.
+All of its parameters are chosen leave-one-match-out on the open IDSSE matches (solution.validate,
+solution.compare_models), never on the competition match.
 """
 
 from dataclasses import asdict, dataclass
@@ -109,15 +110,10 @@ def decode_half(log_probs, params):
     return _viterbi(scores, min_len, cost).astype(np.int8)
 
 
-def decode(probs, period, params, prior=None):
-    """Full-length label codes: decoded inside each period, X outside.
-
-    prior: optional [T, 3] log-score offsets added to the log-probabilities (solution.tags).
-    """
+def decode(probs, period, params):
+    """Full-length label codes: decoded inside each period, X outside."""
     out = np.full(len(period), X, dtype=np.int8)
     log_probs = np.log(np.clip(probs, 1e-9, 1.0))
-    if prior is not None:
-        log_probs = log_probs + prior
     for _, start, stop in period_slices(period):
         out[start:stop] = decode_half(log_probs[start:stop], params)
     return out
