@@ -1,0 +1,8 @@
+{
+ "min_alive": 50,
+ "min_dead": 12,
+ "cost_switch": 5.0,
+ "cost_dead": 40.0,
+ "cost_live": 40.0,
+ "bias_dead": 0.0
+}
